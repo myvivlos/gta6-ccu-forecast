@@ -376,6 +376,7 @@ def forecast_case(case: dict[str, Any]) -> list[dict[str, Any]]:
     df_cap = 9.0
     thin_cnt = 8
     thin_neff = 4.5
+    BAND_SCALE = 0.85
     mid_idx = n_q // 2
 
     raw_q: dict[int, list[float]] = {}
@@ -519,10 +520,16 @@ def forecast_case(case: dict[str, Any]) -> list[dict[str, Any]]:
             for j, k in enumerate(range(mid_idx + 1, n_q)):
                 prev_hi[j] = max(prev_hi[j], sm[k] - med)
 
-    # Exponentiation and defensive clamping
+    # Band width calibration, exponentiation, and defensive clamping
     out_rows: list[dict[str, Any]] = []
     for h in range(2, 25):
-        qs = [p * math.exp(max(-20.0, min(20.0, r))) for r in sm_map[h]]
+        sm_h = sm_map[h]
+        med = sm_h[mid_idx]
+        scaled = [
+            med if k == mid_idx else med + BAND_SCALE * (r - med)
+            for k, r in enumerate(sm_h)
+        ]
+        qs = [p * math.exp(max(-20.0, min(20.0, r))) for r in scaled]
         out_rows.append({"hour": h, "q": finalize_quantiles(qs, p)})
 
     return out_rows
